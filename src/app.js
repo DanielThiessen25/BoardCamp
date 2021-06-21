@@ -1,6 +1,7 @@
 import express from 'express';
 import pg from 'pg';
 import cors from 'cors';
+import dayjs from 'dayjs'
 
 const app = express();
 app.use(cors());
@@ -16,9 +17,11 @@ const connection = new Pool({
   database: 'boardcamp'
 });
 
+let localizador = 0;
 let categorias = [];
 let jogos = [];
 let clientes = [];
+let alugueis = [];
 let existeCategoria = false;
 let existeIdCategoria = false;
 let existeNomeJogo = false;
@@ -66,6 +69,7 @@ function verificarNomeJogo (nome){
         for(let i =0; i<jogos.length; i++){
             if(nome === jogos[i].name){
                 existeNomeJogo = true;
+                localizador = i;
             }
         }
     }
@@ -181,7 +185,6 @@ app.get('/customers', async (req, res) => {
     res.send(result.rows);
   });
 
-
   app.post('/customers', async (req, res) => { 
       validarData(req.body.birthday);
       verificarCPF(req.body.cpf);
@@ -229,7 +232,29 @@ app.get('/customers', async (req, res) => {
           res.status(500).end();
       }
     }
-  
+  });
+app.get('/rentals', async (req, res) => {
+    const result = await connection.query('SELECT * FROM rentals');
+    if(result.row != []){
+        alugueis = [...result.rows];
+        console.log(alugueis);
+    }
+    res.send(result.rows);
+  });
+
+  app.post('/rentals', async (req, res) => { 
+    let now = dayjs();
+    const rentDate = now.format('YYYY-MM-DD');
+    console.log(rentDate);
+    const originalPrice = 0;
+    try{
+        const result = await connection.query('INSERT INTO rentals ("customerId", "gameId", "rentDate", "daysRented", "returnDate", "originalPrice", "delayFee") VALUES ($1 , $2 , $3 , $4 , $5, $6, $7)', [req.body.customerId, req.body.gameId, rentDate, req.body.daysRented, null, originalPrice, null]);
+        res.status(200).end();
+    }catch(error){
+        console.log(error);
+        res.status(500).end();
+    }
+
   });
 
 app.listen(4000, () => {

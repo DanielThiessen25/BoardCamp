@@ -18,9 +18,12 @@ const connection = new Pool({
 
 let categorias = [];
 let jogos = [];
+let clientes = [];
 let existeCategoria = false;
 let existeIdCategoria = false;
 let existeNomeJogo = false;
+let dataValida = true;
+let existeCPF = false;
 loadCategorias();
 
 async function loadCategorias(){
@@ -70,6 +73,38 @@ function verificarNomeJogo (nome){
         existeNomeJogo = false;
     }
 }
+
+
+function verificarCPF(cpf){
+    if(clientes.length != 0){
+        for(let i = 0; i < clientes.length; i++){
+            if(cpf == clientes[i].cpf){
+                existeCPF = true;
+            }
+        }
+    }
+    else{
+        existeCPF = false;
+    }
+}
+
+function validarData(data){
+    if(data[5] != 1 && data[6] != 0){
+      dataValida = false;
+    }
+    if(data[8] != 1 && data[8]!= 0 && data[8]!= 2 && data[8]!= 3){
+      dataValida = false;
+    }
+    if(data[8]== 3){
+        if(data[9] != 0 && data[9] != 1){
+            dataValida = false;
+        }
+    }
+    else{
+        dataValida = true;
+    }
+}
+
 
 app.get('/categories', (req, res) => {
         const result = loadCategorias();
@@ -136,6 +171,66 @@ app.post('/games', async (req, res) => {
             }
         }
 });
+
+app.get('/customers', async (req, res) => {
+    const result = await connection.query('SELECT * FROM customers');
+    if(result.row != []){
+        clientes = [...result.rows];
+        console.log(clientes);
+    }
+    res.send(result.rows);
+  });
+
+
+  app.post('/customers', async (req, res) => { 
+      validarData(req.body.birthday);
+      verificarCPF(req.body.cpf);
+      if(req.body.cpf.length != 11 || req.body.name == '') {
+        res.status(400).end();
+      }
+        if(req.body.phone.length != 10 && req.body.phone.length != 11){
+        res.status(400).end();
+      }
+      else if(dataValida == false){
+        res.status(400).end();
+      }
+      else if(existeCPF == true){
+        res.status(409).end();
+      }
+      else{
+        try{
+            const result = await connection.query('INSERT INTO customers (name, phone, cpf, "birthday") VALUES ($1 , $2 , $3 , $4 )', [req.body.name, req.body.phone, req.body.cpf, req.body.birthday]);
+            res.status(200).end();
+        }catch(error){
+            console.log(error);
+            res.status(500).end();
+        }
+      }
+    
+  });
+
+  app.put('/customers/:id', async (req, res)=>{
+    validarData(req.body.birthday);
+    if(req.body.cpf.length != 11 || req.body.name == '') {
+      res.status(400).end();
+    }
+      if(req.body.phone.length != 10 && req.body.phone.length != 11){
+      res.status(400).end();
+    }
+    else if(dataValida == false){
+      res.status(400).end();
+    }
+    else{
+      try{
+          const result = await connection.query('UPDATE customers SET name=$1, phone = $2, cpf=$3, "birthday"=$4  WHERE id= $5', [req.body.name, req.body.phone, req.body.cpf, req.body.birthday, req.params.id]);
+          res.status(200).end();
+      }catch(error){
+          console.log(error);
+          res.status(500).end();
+      }
+    }
+  
+  });
 
 app.listen(4000, () => {
     console.log('Server listening on port 4000.');
